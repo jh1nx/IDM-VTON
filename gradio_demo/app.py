@@ -1,5 +1,12 @@
 import sys
 sys.path.append('./')
+
+# 创建huggingface_hub兼容性补丁
+import huggingface_hub
+if not hasattr(huggingface_hub, 'cached_download'):
+    from huggingface_hub import hf_hub_download
+    huggingface_hub.cached_download = hf_hub_download
+
 from PIL import Image
 import gradio as gr
 from src.tryon_pipeline import StableDiffusionXLInpaintPipeline as TryonPipeline
@@ -26,6 +33,10 @@ from preprocess.openpose.run_openpose import OpenPose
 from detectron2.data.detection_utils import convert_PIL_to_numpy,_apply_exif_orientation
 from torchvision.transforms.functional import to_pil_image
 
+
+
+
+
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 def pil_to_binary_mask(pil_image, threshold=0):
@@ -41,7 +52,8 @@ def pil_to_binary_mask(pil_image, threshold=0):
     output_mask = Image.fromarray(mask)
     return output_mask
 
-
+# 已经下载好了
+# 首次下载为'yisol/IDM-VTON'
 base_path = 'yisol/IDM-VTON'
 example_path = os.path.join(os.path.dirname(__file__), 'example')
 
@@ -49,6 +61,7 @@ unet = UNet2DConditionModel.from_pretrained(
     base_path,
     subfolder="unet",
     torch_dtype=torch.float16,
+    local_files_only=True # 使用本地文件
 )
 unet.requires_grad_(False)
 tokenizer_one = AutoTokenizer.from_pretrained(
@@ -56,33 +69,39 @@ tokenizer_one = AutoTokenizer.from_pretrained(
     subfolder="tokenizer",
     revision=None,
     use_fast=False,
+    local_files_only=True 
 )
 tokenizer_two = AutoTokenizer.from_pretrained(
     base_path,
     subfolder="tokenizer_2",
     revision=None,
     use_fast=False,
+    local_files_only=True 
 )
-noise_scheduler = DDPMScheduler.from_pretrained(base_path, subfolder="scheduler")
+noise_scheduler = DDPMScheduler.from_pretrained(base_path, subfolder="scheduler",local_files_only=True )
 
 text_encoder_one = CLIPTextModel.from_pretrained(
     base_path,
     subfolder="text_encoder",
     torch_dtype=torch.float16,
+    local_files_only=True 
 )
 text_encoder_two = CLIPTextModelWithProjection.from_pretrained(
     base_path,
     subfolder="text_encoder_2",
     torch_dtype=torch.float16,
+    local_files_only=True 
 )
 image_encoder = CLIPVisionModelWithProjection.from_pretrained(
     base_path,
     subfolder="image_encoder",
     torch_dtype=torch.float16,
+    local_files_only=True 
     )
 vae = AutoencoderKL.from_pretrained(base_path,
                                     subfolder="vae",
                                     torch_dtype=torch.float16,
+                                    local_files_only=True 
 )
 
 # "stabilityai/stable-diffusion-xl-base-1.0",
@@ -90,6 +109,7 @@ UNet_Encoder = UNet2DConditionModel_ref.from_pretrained(
     base_path,
     subfolder="unet_encoder",
     torch_dtype=torch.float16,
+    local_files_only=True 
 )
 
 parsing_model = Parsing(0)
@@ -120,6 +140,7 @@ pipe = TryonPipeline.from_pretrained(
         scheduler = noise_scheduler,
         image_encoder=image_encoder,
         torch_dtype=torch.float16,
+        local_files_only=True 
 )
 pipe.unet_encoder = UNet_Encoder
 
